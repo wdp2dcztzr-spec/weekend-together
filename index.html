@@ -51,6 +51,13 @@
     .footer{text-align:center;color:var(--muted);font-size:12px;padding:22px 8px}
     .hidden{display:none!important}
     .tiny{font-size:11px!important}
+    .fab{position:fixed;right:22px;bottom:22px;width:60px;height:60px;border-radius:50%;font-size:34px;line-height:1;background:#2f8b57;color:#fff;box-shadow:0 5px 18px #173b2b44;z-index:20;padding:0}
+    .addpanel{position:fixed;right:16px;bottom:94px;width:min(350px,calc(100vw - 32px));background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 12px 36px #173b2b33;z-index:21}
+    .addpanel h2{font-size:17px;margin:0 0 12px}
+    .addpanel label{display:block;font-size:13px;font-weight:700;margin:10px 0 5px}
+    .addpanel input,.addpanel select{width:100%}
+    .addactions{display:flex;gap:8px;margin-top:14px}
+    .addactions button{flex:1}
     @media(min-width:560px){.configgrid{grid-template-columns:1fr 1fr}.configgrid .full{grid-column:1/-1}}
   </style>
 </head>
@@ -80,9 +87,7 @@
 
   <div class="personbar">
     <label for="myName">I'm:</label>
-    <select id="myName" aria-label="Choose your name">
-      <option value="">Choose your name</option>
-    </select>
+    <select id="myName" aria-label="Choose your name"><option value="">Choose your name</option></select>
     <button class="secondary" id="showSetup" title="Database settings">⚙️</button>
   </div>
 
@@ -93,6 +98,17 @@
   <div class="footer">Anyone with the public editing link can change this list. Please don't add private information.</div>
 </div>
 
+<button class="fab" id="openAdd" type="button" aria-label="Add an item">+</button>
+<form class="addpanel hidden" id="addPanel">
+  <h2>Add an item</h2>
+  <label for="newItemLabel">Item name</label>
+  <input id="newItemLabel" type="text" maxlength="120" required placeholder="What should be brought?">
+  <label for="newItemCategory">Category</label>
+  <select id="newItemCategory" required></select>
+  <div class="addactions"><button type="button" class="secondary" id="cancelAdd">Cancel</button><button type="submit">Aggiungi alla lista</button></div>
+  <div class="status" id="addStatus" role="status"></div>
+</form>
+
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script>
@@ -101,7 +117,7 @@ const SEED = [
  ["Sleeping & furniture","Extra mattress + pump","Patrícia"],
  ["Sleeping & furniture","Extra duvet and bedding","Patrícia"],
  ["Sleeping & furniture","Pillowcases (for living room pillows)","Patrícia"],
- ["Sleeping & furniture","Extra blankets / sleeping bags (1 sleeping bag)","Chiara"],
+ ["Sleeping & furniture","Extra blankets / sleeping bags","Chiara"],
  ["Kitchen","Extra plates (paper / plastic)","Giada"],
  ["Kitchen","Extra cutlery",""],
  ["Kitchen","Extra glasses / cups","Chiara"],
@@ -143,7 +159,6 @@ function saveConfig(){
 function loadConfig(){
  try{const c=JSON.parse(localStorage.getItem("weekendFirebaseConfig")||"{}"); $("apiKey").value=c.apiKey||"";$("authDomain").value=c.authDomain||"";$("projectId").value=c.projectId||"";$("appId").value=c.appId||"";$("dbUrl").value=c.databaseURL||"";}catch(e){}
 }
-function safeKey(s){return s.toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_|_$/g,"");}
 function connect(){
  const c=saveConfig();
  if(!c.apiKey||!c.authDomain||!c.projectId||!c.appId||!c.databaseURL){showStatus("Please fill in all five Firebase config fields.","bad");return;}
@@ -166,6 +181,13 @@ function connect(){
 function updateItem(id,field,value){
  if(!itemsRef){alert("Connect the shared database first.");return;}
  itemsRef.child(id).child(field).set(value).catch(err=>{alert("Could not save: "+err.message);});
+}
+function addItem(label,category){
+ if(!itemsRef){$("addStatus").textContent="Connect the shared database first.";return;}
+ const newRef=itemsRef.push();
+ newRef.set({category,label,assignee:"",done:false}).then(()=>{
+   $("newItemLabel").value="";$("addPanel").classList.add("hidden");$("addStatus").textContent="";
+ }).catch(err=>{$("addStatus").textContent="Could not add item: "+err.message;});
 }
 function render(){
  const root=$("list");root.innerHTML="";
@@ -198,11 +220,15 @@ function render(){
  });
  if(!total)root.innerHTML='<div class="notice"><h2>No items yet</h2><p>The shared list is empty.</p></div>';
 }
+GROUPS.forEach(group=>{const o=document.createElement("option");o.value=group;o.textContent=group;$("newItemCategory").appendChild(o);});
+$("openAdd").addEventListener("click",()=>{$("addPanel").classList.toggle("hidden");$("newItemLabel").focus();});
+$("cancelAdd").addEventListener("click",()=>$("addPanel").classList.add("hidden"));
+$("addPanel").addEventListener("submit",e=>{e.preventDefault();const label=$("newItemLabel").value.trim(),category=$("newItemCategory").value;if(label)addItem(label,category);});
 $("connectBtn").addEventListener("click",connect);
 $("hideSetup").addEventListener("click",()=>$("setup").classList.add("hidden"));
 $("showSetup").addEventListener("click",()=>$("setup").classList.toggle("hidden"));
 loadConfig();
-if(localStorage.getItem("weekendFirebaseConfig")){ $("setupStatus").textContent="Firebase settings found on this device. Tap Connect checklist."; }
+if(localStorage.getItem("weekendFirebaseConfig")) $("setupStatus").textContent="Firebase settings found on this device. Tap Connect checklist.";
 </script>
 </body>
 </html>
